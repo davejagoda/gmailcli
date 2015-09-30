@@ -14,8 +14,10 @@ def parseArgs():
     return(args)
 
 def gmailLogin(username, tokenFile=None, debug=False):
-    if debug: print('about to log in')
     m = imaplib.IMAP4_SSL('imap.gmail.com')
+    if debug:
+        print('about to log in')
+        m.debug = 4
     if tokenFile:
         with open(tokenFile, 'r') as f:
             credentials = oauth2client.client.Credentials.new_from_json(f.read())
@@ -25,7 +27,6 @@ def gmailLogin(username, tokenFile=None, debug=False):
         auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, credentials.access_token)
         if debug:
             print(auth_string)
-            m.debug = 4
         m.authenticate('XOAUTH2', lambda x: auth_string)
     else:
         password = os.getenv('GoogleDocsPassWord')
