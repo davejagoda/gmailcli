@@ -9,6 +9,7 @@ def promptForCode(clientSecrets):
     flow = oauth2client.client.flow_from_clientsecrets(clientSecrets, OAUTH2_SCOPE)
     flow.redirect_uri = oauth2client.client.OOB_CALLBACK_URN
     authorize_url = flow.step1_get_authorize_url()
+    print('about to open authorize URL: {}'.format(authorize_url))
     webbrowser.open(authorize_url)
     code = raw_input('paste in returned code here: ')
     return(flow.step2_exchange(code))
