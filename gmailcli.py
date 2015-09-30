@@ -18,9 +18,10 @@ def gmailLogin(username, tokenFile=None, debug=False):
     m = imaplib.IMAP4_SSL('imap.gmail.com')
     if tokenFile:
         with open(tokenFile, 'r') as f:
-                credentials = oauth2client.client.Credentials.new_from_json(f.read())
-        http = httplib2.Http()
-        credentials.authorize(http)
+            credentials = oauth2client.client.Credentials.new_from_json(f.read())
+        if credentials.access_token_expired:
+            if debug: print('access token expired, refreshing')
+            credentials.refresh(httplib2.Http())
         auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, credentials.access_token)
         if debug:
             print(auth_string)
