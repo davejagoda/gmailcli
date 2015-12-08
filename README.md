@@ -2,17 +2,23 @@
 
 GMail Command Line Interface
 
+## key
+
+*required to use Application Specific Passwords*
+
+**required to use OAuth Tokens**
+
 ## server requirements
 
 GMail account with IMAP enabled: https://mail.google.com/mail/#settings/fwdandpop
 
-~~enable "less secure apps": https://www.google.com/settings/security/lesssecureapps~~
+*enable "less secure apps": https://www.google.com/settings/security/lesssecureapps*
 
 ## client requirements
 
 - Python
 - IMAP
-- google-api-python-client
+- **google-api-python-client**
 
 ## installation
 
@@ -22,11 +28,11 @@ GMail account with IMAP enabled: https://mail.google.com/mail/#settings/fwdandpo
 
 `cd gmailcli`
 
-`virtualenv venv`
+**`virtualenv venv`**
 
-`source venv/bin/activate`
+**`source venv/bin/activate`**
 
-`pip install -r requirements.txt`
+**`pip install -r requirements.txt`**
 
 ## potentially useful findings
 
