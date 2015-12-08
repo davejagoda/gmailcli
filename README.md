@@ -6,7 +6,7 @@ GMail Command Line Interface
 
 GMail account with IMAP enabled: https://mail.google.com/mail/#settings/fwdandpop
 
-~~ enable "less secure apps": https://www.google.com/settings/security/lesssecureapps~~
+~~enable "less secure apps": https://www.google.com/settings/security/lesssecureapps~~
 
 ## client requirements
 
