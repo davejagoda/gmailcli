@@ -39,3 +39,9 @@ GMail account with IMAP enabled: https://mail.google.com/mail/#settings/fwdandpo
 `Labels` and `Folders` are basically the same thing. Adding a `Label` to a message is like copying it to a `Folder`.
 
 `Inbox` is a special `Label`. `All Mail` is the folder to which all messages belong.
+
+## invocations
+
+`./writeGoogleBearerToken.py djcatchspam_client_secrets.json djcatchspam_gmail_token.json`
+
+`./gmailcli.py -t djcatchspam_gmail_token.json -u djcatchspam@gmail.com`
