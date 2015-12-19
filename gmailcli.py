@@ -6,18 +6,18 @@ import httplib2
 
 def parseArgs():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', help='add debug output', action='store_true')
-    parser.add_argument('-c', '--count', help='provide counts', action='store_true')
+    parser.add_argument('-d', '--debug', action='count', help='add debug output')
+    parser.add_argument('-c', '--count', action='store_true', help='provide counts')
     parser.add_argument('-t', '--tokenFile', help='OAuth token file')
     parser.add_argument('-u', '--username', required=True, help='IMAP username')
     args = parser.parse_args()
     return(args)
 
-def gmailLogin(username, tokenFile=None, debug=False):
+def gmailLogin(username, tokenFile=None, debug=0):
     m = imaplib.IMAP4_SSL('imap.gmail.com')
     if debug:
         print('about to log in')
-        m.debug = 4
+        m.debug = debug # setting to 4 seems quite verbose
     if tokenFile:
         with open(tokenFile, 'r') as f:
             credentials = oauth2client.client.Credentials.new_from_json(f.read())
@@ -37,14 +37,14 @@ def gmailLogin(username, tokenFile=None, debug=False):
     if debug: print('just logged in')
     return(m)
 
-def countMessages(m, debug=False):
+def countMessages(m, debug=0):
     status, response = m.select(readonly=True)
     assert 'OK' == status
     m.close()
     if debug: print(response)
     return(response[0])
 
-def gmailLogout(m, debug=False):
+def gmailLogout(m, debug=0):
     if debug: print('about to log out')
     m.logout()
     if debug: print('just logged out')
