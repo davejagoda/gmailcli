@@ -8,6 +8,7 @@ def parseArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--debug', action='count', help='add debug output')
     parser.add_argument('-c', '--count', action='store_true', help='provide counts')
+    parser.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
     parser.add_argument('-t', '--tokenFile', help='OAuth token file')
     parser.add_argument('-u', '--username', required=True, help='IMAP username')
     args = parser.parse_args()
@@ -25,8 +26,7 @@ def gmailLogin(username, tokenFile=None, debug=0):
             if debug: print('access token expired, refreshing')
             credentials.refresh(httplib2.Http())
         auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, credentials.access_token)
-        if debug:
-            print(auth_string)
+        if debug: print(auth_string)
         m.authenticate('XOAUTH2', lambda x: auth_string)
     else:
         password = os.getenv('GoogleDocsPassWord')
@@ -37,12 +37,24 @@ def gmailLogin(username, tokenFile=None, debug=0):
     if debug: print('just logged in')
     return(m)
 
-def countMessages(m, debug=0):
-    status, response = m.select(readonly=True)
-    assert 'OK' == status
-    m.close()
+def countMessages(m, mailbox, debug=0):
+    status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
+    assert 'OK' == status
     return(response[0])
+
+def listMailboxes(m, debug=0):
+    mailboxes = []
+    status, response = m.list()
+    assert 'OK' == status
+    if debug: print(response)
+    assert(list == type(response))
+    for mailbox in response:
+        assert(str == type(mailbox))
+        if debug: print(mailbox)
+        if '\Noselect' not in mailbox.split('"')[0]:
+            mailboxes.append(mailbox.split('"')[-2])
+    return(mailboxes)
 
 def gmailLogout(m, debug=0):
     if debug: print('about to log out')
@@ -52,7 +64,12 @@ def gmailLogout(m, debug=0):
 if '__main__' == __name__:
     args = parseArgs()
     m = gmailLogin(args.username, args.tokenFile, args.debug)
-    if args.count:
-        messageCount = countMessages(m, debug=args.debug)
-        print('{}'.format(messageCount))
+    if args.mailboxes:
+        mailboxes = listMailboxes(m, debug=args.debug)
+        for mailbox in mailboxes:
+            if args.count:
+                messageCount = countMessages(m, mailbox, debug=args.debug)
+                print('{}:{}'.format(mailbox, messageCount))
+            else:
+                print(mailbox)
     gmailLogout(m, debug=args.debug)
