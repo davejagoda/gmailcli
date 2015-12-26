@@ -9,6 +9,7 @@ def parseArgs():
     parser.add_argument('-d', '--debug', action='count', help='add debug output')
     parser.add_argument('-c', '--count', action='store_true', help='provide counts')
     parser.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
+    parser.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
     parser.add_argument('-t', '--tokenFile', help='OAuth token file')
     parser.add_argument('-u', '--username', required=True, help='IMAP username')
     args = parser.parse_args()
@@ -56,6 +57,14 @@ def listMailboxes(m, debug=0):
             mailboxes.append(mailbox.split('"')[-2])
     return(mailboxes)
 
+def interactiveDelete(m, mailbox, debug=0):
+    status, response = m.select(mailbox, readonly=False)
+    if debug: print(response)
+    if 'OK' == status:
+        return('mailbox found')
+    else:
+        return('mailbox not found')
+
 def gmailLogout(m, debug=0):
     if debug: print('about to log out')
     m.logout()
@@ -63,7 +72,7 @@ def gmailLogout(m, debug=0):
 
 if '__main__' == __name__:
     args = parseArgs()
-    m = gmailLogin(args.username, args.tokenFile, args.debug)
+    m = gmailLogin(args.username, args.tokenFile, debug=args.debug)
     if args.mailboxes:
         mailboxes = listMailboxes(m, debug=args.debug)
         for mailbox in mailboxes:
@@ -72,4 +81,6 @@ if '__main__' == __name__:
                 print('{}:{}'.format(mailbox, messageCount))
             else:
                 print(mailbox)
+    if args.interactiveDelete:
+        print(interactiveDelete(m, args.interactiveDelete, debug=args.debug))
     gmailLogout(m, debug=args.debug)
