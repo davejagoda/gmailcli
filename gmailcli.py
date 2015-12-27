@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, imaplib, argparse
+import os, sys, imaplib, email, argparse, tty, termios
 import oauth2client.client
 import httplib2
 
@@ -41,13 +41,13 @@ def gmailLogin(username, tokenFile=None, debug=0):
 def countMessages(m, mailbox, debug=0):
     status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
-    assert 'OK' == status
+    assert('OK' == status)
     return(response[0])
 
 def listMailboxes(m, debug=0):
     mailboxes = []
     status, response = m.list()
-    assert 'OK' == status
+    assert('OK' == status)
     if debug: print(response)
     assert(list == type(response))
     for mailbox in response:
@@ -58,12 +58,48 @@ def listMailboxes(m, debug=0):
     return(mailboxes)
 
 def interactiveDelete(m, mailbox, debug=0):
+    fd = sys.stdin.fileno()
+    saveTCGetAttr = termios.tcgetattr(fd)
     status, response = m.select(mailbox, readonly=False)
     if debug: print(response)
-    if 'OK' == status:
-        return('mailbox found')
-    else:
+    if 'OK' != status:
         return('mailbox not found')
+    status, response = m.uid('search', None, 'ALL')
+    assert('OK' == status)
+    assert(type(response == list))
+    assert(1 == len(response))
+    message_count = 0
+    delete_count = 0
+    for msg_uid in response[0].split():
+        status, response = m.uid('FETCH', msg_uid, '(RFC822)')
+        assert('OK' == status)
+        if debug: print('msgUID:{} len:{}'.format(msg_uid,len(response)))
+        assert(type(response) == list)
+        assert(2 <= len(response))
+        assert(type(response[0]) == tuple)
+        assert(2 <= len(response[0]))
+        (imap_data, message_data) = response[0]
+        headers = email.message_from_string(message_data)
+        print(response)
+        print(imap_data)
+        print('To: {}'.format(headers['to']))
+        print('From: {}'.format(headers['from']))
+        print('Subject: {}'.format(headers['subject']))
+        print 'Delete? (y/n): ',
+        tty.setraw(fd)
+        pleaseDelete = sys.stdin.read(1)
+        termios.tcsetattr(fd, termios.TCSADRAIN, saveTCGetAttr)
+        print(pleaseDelete)
+        if 'y' == pleaseDelete:
+            print m.uid('STORE', msg_uid, '+FLAGS', '(\\Deleted)')
+            delete_count += 1
+        message_count +=1
+    print '.',
+    if 0 < delete_count and 0 == delete_count % 10:
+        print m.expunge()
+        print('expunged!')
+    m.close()
+    print message_count, delete_count
 
 def gmailLogout(m, debug=0):
     if debug: print('about to log out')
