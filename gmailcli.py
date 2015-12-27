@@ -71,6 +71,7 @@ def interactiveDelete(m, mailbox, debug=0):
     message_count = 0
     delete_count = 0
     for msg_uid in response[0].split():
+        message_count +=1
         status, response = m.uid('FETCH', msg_uid, '(RFC822)')
         assert('OK' == status)
         if debug: print('msgUID:{} len:{}'.format(msg_uid,len(response)))
@@ -85,21 +86,21 @@ def interactiveDelete(m, mailbox, debug=0):
         print('To: {}'.format(headers['to']))
         print('From: {}'.format(headers['from']))
         print('Subject: {}'.format(headers['subject']))
-        print 'Delete? (y/n): ',
+        print 'Delete? (y/n/q): ',
         tty.setraw(fd)
-        pleaseDelete = sys.stdin.read(1)
+        user_input = sys.stdin.read(1)
         termios.tcsetattr(fd, termios.TCSADRAIN, saveTCGetAttr)
-        print(pleaseDelete)
-        if 'y' == pleaseDelete:
+        print(user_input)
+        if 'y' == user_input:
             print m.uid('STORE', msg_uid, '+FLAGS', '(\\Deleted)')
             delete_count += 1
-        message_count +=1
-    print '.',
+        if 'q' == user_input:
+            break
     if 0 < delete_count and 0 == delete_count % 10:
         print m.expunge()
         print('expunged!')
     m.close()
-    print message_count, delete_count
+    return([message_count, delete_count])
 
 def gmailLogout(m, debug=0):
     if debug: print('about to log out')
@@ -113,10 +114,11 @@ if '__main__' == __name__:
         mailboxes = listMailboxes(m, debug=args.debug)
         for mailbox in mailboxes:
             if args.count:
-                messageCount = countMessages(m, mailbox, debug=args.debug)
-                print('{}:{}'.format(mailbox, messageCount))
+                message_count = countMessages(m, mailbox, debug=args.debug)
+                print('{}:{}'.format(mailbox, message_count))
             else:
                 print(mailbox)
     if args.interactiveDelete:
-        print(interactiveDelete(m, args.interactiveDelete, debug=args.debug))
+        (message_count, delete_count) = interactiveDelete(m, args.interactiveDelete, debug=args.debug)
+        print('messages processed:{} messages deleted:{}'.format(message_count, delete_count))
     gmailLogout(m, debug=args.debug)
