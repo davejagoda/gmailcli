@@ -96,9 +96,9 @@ def interactiveDelete(m, mailbox, debug=0):
             delete_count += 1
         if 'q' == user_input:
             break
-    if 0 < delete_count and 0 == delete_count % 10:
-        print m.expunge()
-        print('\nexpunged!\n')
+        if 0 < delete_count and 0 == delete_count % 10:
+            print m.expunge()
+            print('\nexpunged!\n')
     m.close()
     return([message_count, delete_count])
 
