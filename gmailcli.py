@@ -98,7 +98,7 @@ def interactiveDelete(m, mailbox, debug=0):
             break
     if 0 < delete_count and 0 == delete_count % 10:
         print m.expunge()
-        print('expunged!')
+        print('\nexpunged!\n')
     m.close()
     return([message_count, delete_count])
 
