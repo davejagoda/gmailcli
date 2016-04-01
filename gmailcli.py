@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 
-import os, sys, imaplib, email, argparse, tty, termios
+import os, sys, imaplib, email, argparse, tty, termios, datetime
 import oauth2client.client
 import httplib2
 
 def parseArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--debug', action='count', help='add debug output')
-    parser.add_argument('-c', '--count', action='store_true', help='provide counts')
-    parser.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
-    parser.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
-    parser.add_argument('-t', '--tokenFile', help='OAuth token file')
     parser.add_argument('-u', '--username', required=True, help='IMAP username')
+    parser.add_argument('-t', '--tokenFile', help='OAuth token file')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-s', '--since', help='provide INBOX counts since CCYY-MM-DD')
+    group.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
+    group.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
     args = parser.parse_args()
     return(args)
 
@@ -37,6 +38,19 @@ def gmailLogin(username, tokenFile=None, debug=0):
         m.login(username, password)
     if debug: print('just logged in')
     return(m)
+
+def countSince(m, since, debug=0):
+    status, response = m.select('INBOX', readonly=True)
+    if debug: print(response)
+    assert('OK' == status)
+    d = datetime.datetime.strptime(since, '%Y-%m-%d')
+    searchstring = '(since "{}")'.format(d.strftime('%d-%b-%Y'))
+    if debug: print(searchstring)
+    status, response = m.search(None, searchstring)
+    if debug: print(response)
+    assert('OK' == status)
+    assert(1 == len(response))
+    return(len(response[0].split()))
 
 def countMessages(m, mailbox, debug=0):
     status, response = m.select(mailbox, readonly=True)
@@ -110,14 +124,13 @@ def gmailLogout(m, debug=0):
 if '__main__' == __name__:
     args = parseArgs()
     m = gmailLogin(args.username, args.tokenFile, debug=args.debug)
+    if args.since:
+        print('{} messages since {}'.format(countSince(m, args.since, debug=args.debug), args.since))
     if args.mailboxes:
         mailboxes = listMailboxes(m, debug=args.debug)
         for mailbox in mailboxes:
-            if args.count:
-                message_count = countMessages(m, mailbox, debug=args.debug)
-                print('{}:{}'.format(mailbox, message_count))
-            else:
-                print(mailbox)
+            message_count = countMessages(m, mailbox, debug=args.debug)
+            print('{}:{}'.format(mailbox, message_count))
     if args.interactiveDelete:
         (message_count, delete_count) = interactiveDelete(m, args.interactiveDelete, debug=args.debug)
         print('messages processed:{} messages deleted:{}'.format(message_count, delete_count))
