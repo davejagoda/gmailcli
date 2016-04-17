@@ -10,6 +10,7 @@ def parseArgs():
     parser.add_argument('-u', '--username', required=True, help='IMAP username')
     parser.add_argument('-t', '--tokenFile', help='OAuth token file')
     group = parser.add_mutually_exclusive_group()
+    group.add_argument('-o', '--on', help='provide INBOX counts on CCYY-MM-DD')
     group.add_argument('-s', '--since', help='provide INBOX counts since CCYY-MM-DD')
     group.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
     group.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
@@ -38,6 +39,19 @@ def gmailLogin(username, tokenFile=None, debug=0):
         m.login(username, password)
     if debug: print('just logged in')
     return(m)
+
+def countOn(m, on, debug=0):
+    status, response = m.select('INBOX', readonly=True)
+    if debug: print(response)
+    assert('OK' == status)
+    d = datetime.datetime.strptime(on, '%Y-%m-%d')
+    searchstring = '(on "{}")'.format(d.strftime('%d-%b-%Y'))
+    if debug: print(searchstring)
+    status, response = m.search(None, searchstring)
+    if debug: print(response)
+    assert('OK' == status)
+    assert(1 == len(response))
+    return(len(response[0].split()))
 
 def countSince(m, since, debug=0):
     status, response = m.select('INBOX', readonly=True)
@@ -124,6 +138,8 @@ def gmailLogout(m, debug=0):
 if '__main__' == __name__:
     args = parseArgs()
     m = gmailLogin(args.username, args.tokenFile, debug=args.debug)
+    if args.on:
+        print('{} messages on {}'.format(countOn(m, args.on, debug=args.debug), args.on))
     if args.since:
         print('{} messages since {}'.format(countSince(m, args.since, debug=args.debug), args.since))
     if args.mailboxes:
