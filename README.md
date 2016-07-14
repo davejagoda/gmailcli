@@ -47,3 +47,7 @@ GMail account with IMAP enabled: https://mail.google.com/mail/#settings/fwdandpo
 `./gmailcli.py -t djcatchspam_gmail_token.json -u djcatchspam@gmail.com -m -c`
 
 `./gmailcli.py -t djcatchspam_gmail_token.json -u djcatchspam@gmail.com -dddd`
+
+`./gmailsend.py -t djcatchspam_gmail_token.json -r djcatchspam@gmail.com -s 'email subject' -b 'email body' -vv`
+
+`./gmailsend.py -t djcatchspam_gmail_token.json -r djcatchspam@gmail.com -s 'attachments' -b '2 attachments' -a file_in_cwd /tmp/file_with_path`
