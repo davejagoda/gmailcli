@@ -82,4 +82,6 @@ if '__main__' == __name__:
     msg = create_message('me', args.recipients, args.subject, args.body, args.attachments, args.verbose)
     if args.verbose > 1:
         print(msg)
-    print(gmail_service.users().messages().send(userId='me', body=msg).execute())
+    res = gmail_service.users().messages().send(userId='me', body=msg).execute()
+    if args.verbose > 0:
+        print(res)
