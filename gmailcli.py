@@ -14,6 +14,8 @@ def parseArgs():
     group.add_argument('-s', '--since', help='provide INBOX counts since CCYY-MM-DD')
     group.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
     group.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
+    group.add_argument('-e', '--envelopes', help='print all envelope data from this folder')
+    group.add_argument('-f', '--flags', help='print all flags from this folder')
     args = parser.parse_args()
     return(args)
 
@@ -127,8 +129,45 @@ def interactiveDelete(m, mailbox, debug=0):
         if 0 < delete_count and 0 == delete_count % 10:
             print m.expunge()
             print('\nexpunged!\n')
+    if 0 < delete_count and 0 != delete_count % 10:
+        print m.expunge()
+        print('\nexpunged!\n')
     m.close()
     return([message_count, delete_count])
+
+def envelopes(m, mailbox, debug=0):
+    status, response = m.select(mailbox, readonly=True)
+    if debug: print(response)
+    if 'OK' != status:
+        return('mailbox not found')
+    status, response = m.uid('search', None, 'ALL')
+    assert('OK' == status)
+    assert(type(response == list))
+    assert(1 == len(response))
+    message_count = 0
+    delete_count = 0
+    for msg_uid in response[0].split():
+        message_count +=1
+        status, response = m.uid('FETCH', msg_uid, '(ENVELOPE)')
+        assert('OK' == status)
+        print(response)
+
+def flags(m, mailbox, debug=0):
+    status, response = m.select(mailbox, readonly=True)
+    if debug: print(response)
+    if 'OK' != status:
+        return('mailbox not found')
+    status, response = m.uid('search', None, 'ALL')
+    assert('OK' == status)
+    assert(type(response == list))
+    assert(1 == len(response))
+    message_count = 0
+    delete_count = 0
+    for msg_uid in response[0].split():
+        message_count +=1
+        status, response = m.uid('FETCH', msg_uid, '(FLAGS)')
+        assert('OK' == status)
+        print(response)
 
 def gmailLogout(m, debug=0):
     if debug: print('about to log out')
@@ -150,4 +189,8 @@ if '__main__' == __name__:
     if args.interactiveDelete:
         (message_count, delete_count) = interactiveDelete(m, args.interactiveDelete, debug=args.debug)
         print('messages processed:{} messages deleted:{}'.format(message_count, delete_count))
+    if args.envelopes:
+        envelopes(m, args.envelopes, debug=args.debug)
+    if args.flags:
+        flags(m, args.flags, debug=args.debug)
     gmailLogout(m, debug=args.debug)
