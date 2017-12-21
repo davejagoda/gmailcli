@@ -1,21 +1,33 @@
 #!/usr/bin/env python
 
-import os, sys, imaplib, email, argparse, tty, termios, datetime
-import oauth2client.client
+import argparse
+import datetime
+import dateutil.parser
+import email
 import httplib2
+import imaplib
+import oauth2client.client
+import os
+import sys
+import termios
+import time
+import tty
+
+EPOCH = dateutil.parser.parse('1970-01-01 00:00:00 +0000')
 
 def parseArgs():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', action='count', help='add debug output')
+    parser.add_argument('-d', '--debug', action='count', help='debug output')
     parser.add_argument('-u', '--username', required=True, help='IMAP username')
     parser.add_argument('-t', '--tokenFile', help='OAuth token file')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-o', '--on', help='provide INBOX counts on CCYY-MM-DD')
-    group.add_argument('-s', '--since', help='provide INBOX counts since CCYY-MM-DD')
+    group.add_argument('-o', '--on', help='INBOX counts on CCYY-MM-DD')
+    group.add_argument('-s', '--since', help='INBOX counts since CCYY-MM-DD')
     group.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
     group.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
     group.add_argument('-e', '--envelopes', help='print all envelope data from this folder')
     group.add_argument('-f', '--flags', help='print all flags from this folder')
+    group.add_argument('-a', '--append', help='append this file to the INBOX')
     args = parser.parse_args()
     return(args)
 
@@ -169,6 +181,18 @@ def flags(m, mailbox, debug=0):
         assert('OK' == status)
         print(response)
 
+def append(m, filename, debug=0):
+    with open(filename, 'rb') as f:
+        msg = f.read()
+    date_from_message = email.message_from_string(msg)['date']
+    if None == date_from_message:
+        date_time = imaplib.Time2Internaldate(time.time())
+    else:
+        date_time = imaplib.Time2Internaldate(
+            (dateutil.parser.parse(date_from_message) - EPOCH).total_seconds())
+    if debug: print(date_from_message, date_time)
+    status, response = m.append('INBOX', '', date_time, msg)
+
 def gmailLogout(m, debug=0):
     if debug: print('about to log out')
     m.logout()
@@ -193,4 +217,6 @@ if '__main__' == __name__:
         envelopes(m, args.envelopes, debug=args.debug)
     if args.flags:
         flags(m, args.flags, debug=args.debug)
+    if args.append:
+        append(m, args.append, debug=args.debug)
     gmailLogout(m, debug=args.debug)
