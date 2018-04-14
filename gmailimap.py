@@ -21,8 +21,9 @@ def parseArgs():
     parser.add_argument('-u', '--username', required=True, help='IMAP username')
     parser.add_argument('-t', '--tokenFile', help='OAuth token file')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-o', '--on', help='INBOX counts on CCYY-MM-DD')
-    group.add_argument('-s', '--since', help='INBOX counts since CCYY-MM-DD')
+    group.add_argument('-b', '--before', help='[Gmail]/All Mail counts before CCYY-MM-DD')
+    group.add_argument('-o', '--on', help='[Gmail]/All Mail counts on CCYY-MM-DD')
+    group.add_argument('-s', '--since', help='[Gmail]/All Mail counts since CCYY-MM-DD')
     group.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
     group.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
     group.add_argument('-e', '--envelopes', help='print all envelope data from this folder')
@@ -54,8 +55,21 @@ def gmailLogin(username, tokenFile=None, debug=0):
     if debug: print('just logged in')
     return(m)
 
+def countBefore(m, before, debug=0):
+    status, response = m.select('[Gmail]/All Mail', readonly=True)
+    if debug: print(response)
+    assert('OK' == status)
+    d = datetime.datetime.strptime(before, '%Y-%m-%d')
+    searchstring = '(before "{}")'.format(d.strftime('%d-%b-%Y'))
+    if debug: print(searchstring)
+    status, response = m.search(None, searchstring)
+    if debug: print(response)
+    assert('OK' == status)
+    assert(1 == len(response))
+    return(len(response[0].split()))
+
 def countOn(m, on, debug=0):
-    status, response = m.select('INBOX', readonly=True)
+    status, response = m.select('[Gmail]/All Mail', readonly=True)
     if debug: print(response)
     assert('OK' == status)
     d = datetime.datetime.strptime(on, '%Y-%m-%d')
@@ -68,7 +82,7 @@ def countOn(m, on, debug=0):
     return(len(response[0].split()))
 
 def countSince(m, since, debug=0):
-    status, response = m.select('INBOX', readonly=True)
+    status, response = m.select('[Gmail]/All Mail', readonly=True)
     if debug: print(response)
     assert('OK' == status)
     d = datetime.datetime.strptime(since, '%Y-%m-%d')
@@ -201,6 +215,8 @@ def gmailLogout(m, debug=0):
 if '__main__' == __name__:
     args = parseArgs()
     m = gmailLogin(args.username, args.tokenFile, debug=args.debug)
+    if args.before:
+        print('{} messages before {}'.format(countBefore(m, args.before, debug=args.debug), args.before))
     if args.on:
         print('{} messages on {}'.format(countOn(m, args.on, debug=args.debug), args.on))
     if args.since:
