@@ -24,7 +24,7 @@ def parseArgs():
     group.add_argument('-b', '--before', help='[Gmail]/All Mail counts before CCYY-MM-DD')
     group.add_argument('-o', '--on', help='[Gmail]/All Mail counts on CCYY-MM-DD')
     group.add_argument('-s', '--since', help='[Gmail]/All Mail counts since CCYY-MM-DD')
-    group.add_argument('-m', '--mailboxes', action='store_true', help='list mailboxes')
+    group.add_argument('-l', '--list', action='store_true', help='list mailboxes')
     group.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
     group.add_argument('-e', '--envelopes', help='print all envelope data from this folder')
     group.add_argument('-f', '--flags', help='print all flags from this folder')
@@ -103,8 +103,8 @@ def countMessages(m, mailbox, debug=0):
 def listMailboxes(m, debug=0):
     mailboxes = []
     status, response = m.list()
-    assert('OK' == status)
     if debug: print(response)
+    assert('OK' == status)
     assert(list == type(response))
     for mailbox in response:
         assert(str == type(mailbox))
@@ -129,8 +129,8 @@ def interactiveDelete(m, mailbox, debug=0):
     for msg_uid in response[0].split():
         message_count +=1
         status, response = m.uid('FETCH', msg_uid, '(RFC822)')
-        assert('OK' == status)
         if debug: print('msgUID:{} len:{}'.format(msg_uid,len(response)))
+        assert('OK' == status)
         assert(type(response) == list)
         assert(2 <= len(response))
         assert(type(response[0]) == tuple)
@@ -221,7 +221,7 @@ if '__main__' == __name__:
         print('{} messages on {}'.format(countOn(m, args.on, debug=args.debug), args.on))
     if args.since:
         print('{} messages since {}'.format(countSince(m, args.since, debug=args.debug), args.since))
-    if args.mailboxes:
+    if args.list:
         mailboxes = listMailboxes(m, debug=args.debug)
         for mailbox in mailboxes:
             message_count = countMessages(m, mailbox, debug=args.debug)
