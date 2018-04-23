@@ -18,17 +18,23 @@ EPOCH = dateutil.parser.parse('1970-01-01 00:00:00 +0000')
 def parseArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--debug', action='count', help='debug output')
-    parser.add_argument('-u', '--username', required=True, help='IMAP username')
+    parser.add_argument('-m', '--mailbox', default='[Gmail]/All Mail',
+                        help='name of mailbox to use')
     parser.add_argument('-t', '--tokenFile', help='OAuth token file')
+    parser.add_argument('-u', '--username', required=True, help='IMAP username')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-b', '--before', help='[Gmail]/All Mail counts before CCYY-MM-DD')
-    group.add_argument('-o', '--on', help='[Gmail]/All Mail counts on CCYY-MM-DD')
-    group.add_argument('-s', '--since', help='[Gmail]/All Mail counts since CCYY-MM-DD')
-    group.add_argument('-l', '--list', action='store_true', help='list mailboxes')
-    group.add_argument('-i', '--interactiveDelete', help='ask to delete messages from this folder one by one')
-    group.add_argument('-e', '--envelopes', help='print all envelope data from this folder')
-    group.add_argument('-f', '--flags', help='print all flags from this folder')
-    group.add_argument('-a', '--append', help='append this file to the INBOX')
+    group.add_argument('-b', '--before', help='counts before CCYY-MM-DD')
+    group.add_argument('-o', '--on', help='counts on CCYY-MM-DD')
+    group.add_argument('-s', '--since', help='counts since CCYY-MM-DD')
+    group.add_argument('-l', '--list', action='store_true',
+                       help='list mailboxes')
+    group.add_argument('-i', '--interactiveDelete', action='store_true',
+                       help='ask to delete messages one by one')
+    group.add_argument('-e', '--envelopes', action='store_true',
+                       help='print all envelope data')
+    group.add_argument('-f', '--flags', action='store_true',
+                       help='print all flags')
+    group.add_argument('-a', '--append', help='append this file')
     args = parser.parse_args()
     return(args)
 
@@ -55,8 +61,8 @@ def gmailLogin(username, tokenFile=None, debug=0):
     if debug: print('just logged in')
     return(m)
 
-def countBefore(m, before, debug=0):
-    status, response = m.select('[Gmail]/All Mail', readonly=True)
+def countBefore(m, mailbox, before, debug=0):
+    status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     assert('OK' == status)
     d = datetime.datetime.strptime(before, '%Y-%m-%d')
@@ -68,8 +74,8 @@ def countBefore(m, before, debug=0):
     assert(1 == len(response))
     return(len(response[0].split()))
 
-def countOn(m, on, debug=0):
-    status, response = m.select('[Gmail]/All Mail', readonly=True)
+def countOn(m, mailbox, on, debug=0):
+    status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     assert('OK' == status)
     d = datetime.datetime.strptime(on, '%Y-%m-%d')
@@ -81,8 +87,8 @@ def countOn(m, on, debug=0):
     assert(1 == len(response))
     return(len(response[0].split()))
 
-def countSince(m, since, debug=0):
-    status, response = m.select('[Gmail]/All Mail', readonly=True)
+def countSince(m, mailbox, since, debug=0):
+    status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     assert('OK' == status)
     d = datetime.datetime.strptime(since, '%Y-%m-%d')
@@ -195,7 +201,7 @@ def flags(m, mailbox, debug=0):
         assert('OK' == status)
         print(response)
 
-def append(m, filename, debug=0):
+def append(m, mailbox, filename, debug=0):
     with open(filename, 'rb') as f:
         msg = f.read()
     date_from_message = email.message_from_string(msg)['date']
@@ -205,7 +211,7 @@ def append(m, filename, debug=0):
         date_time = imaplib.Time2Internaldate(
             (dateutil.parser.parse(date_from_message) - EPOCH).total_seconds())
     if debug: print(date_from_message, date_time)
-    status, response = m.append('INBOX', '', date_time, msg)
+    status, response = m.append(mailbox, '', date_time, msg)
 
 def gmailLogout(m, debug=0):
     if debug: print('about to log out')
@@ -216,23 +222,28 @@ if '__main__' == __name__:
     args = parseArgs()
     m = gmailLogin(args.username, args.tokenFile, debug=args.debug)
     if args.before:
-        print('{} messages before {}'.format(countBefore(m, args.before, debug=args.debug), args.before))
+        print('{} messages before {}'.format(countBefore(
+            m, args.mailbox, args.before, debug=args.debug), args.before))
     if args.on:
-        print('{} messages on {}'.format(countOn(m, args.on, debug=args.debug), args.on))
+        print('{} messages on {}'.format(countOn(
+            m, args.mailbox, args.on, debug=args.debug), args.on))
     if args.since:
-        print('{} messages since {}'.format(countSince(m, args.since, debug=args.debug), args.since))
+        print('{} messages since {}'.format(countSince(
+            m, args.mailbox, args.since, debug=args.debug), args.since))
     if args.list:
         mailboxes = listMailboxes(m, debug=args.debug)
         for mailbox in mailboxes:
             message_count = countMessages(m, mailbox, debug=args.debug)
             print('{}:{}'.format(mailbox, message_count))
     if args.interactiveDelete:
-        (message_count, delete_count) = interactiveDelete(m, args.interactiveDelete, debug=args.debug)
-        print('messages processed:{} messages deleted:{}'.format(message_count, delete_count))
+        (message_count, delete_count) = interactiveDelete(
+            m, args.mailbox, debug=args.debug)
+        print('messages processed:{} messages deleted:{}'.format(
+            message_count, delete_count))
     if args.envelopes:
-        envelopes(m, args.envelopes, debug=args.debug)
+        envelopes(m, args.mailbox, debug=args.debug)
     if args.flags:
-        flags(m, args.flags, debug=args.debug)
+        flags(m, args.mailbox, debug=args.debug)
     if args.append:
-        append(m, args.append, debug=args.debug)
+        append(m, args.mailbox, args.append, debug=args.debug)
     gmailLogout(m, debug=args.debug)
