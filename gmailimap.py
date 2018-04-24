@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 import argparse
 import datetime
 import dateutil.parser
@@ -17,10 +17,12 @@ EPOCH = dateutil.parser.parse('1970-01-01 00:00:00 +0000')
 
 def parseArgs():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', action='count', help='debug output')
+    parser.add_argument('-d', '--debug', action='count', default=0,
+                        help='debug output')
     parser.add_argument('-m', '--mailbox', default='[Gmail]/All Mail',
                         help='name of mailbox to use')
-    parser.add_argument('-t', '--tokenFile', help='OAuth token file')
+    parser.add_argument('-t', '--tokenFile', default=None,
+                        help='OAuth token file')
     parser.add_argument('-u', '--username', required=True, help='IMAP username')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-b', '--before', help='counts before CCYY-MM-DD')
@@ -38,7 +40,7 @@ def parseArgs():
     args = parser.parse_args()
     return(args)
 
-def gmailLogin(username, tokenFile=None, debug=0):
+def gmailLogin(username, tokenFile, debug):
     m = imaplib.IMAP4_SSL('imap.gmail.com')
     if debug:
         print('about to log in')
@@ -61,7 +63,7 @@ def gmailLogin(username, tokenFile=None, debug=0):
     if debug: print('just logged in')
     return(m)
 
-def countBefore(m, mailbox, before, debug=0):
+def countBefore(m, mailbox, before, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     assert('OK' == status)
@@ -74,7 +76,7 @@ def countBefore(m, mailbox, before, debug=0):
     assert(1 == len(response))
     return(len(response[0].split()))
 
-def countOn(m, mailbox, on, debug=0):
+def countOn(m, mailbox, on, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     assert('OK' == status)
@@ -87,7 +89,7 @@ def countOn(m, mailbox, on, debug=0):
     assert(1 == len(response))
     return(len(response[0].split()))
 
-def countSince(m, mailbox, since, debug=0):
+def countSince(m, mailbox, since, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     assert('OK' == status)
@@ -100,13 +102,13 @@ def countSince(m, mailbox, since, debug=0):
     assert(1 == len(response))
     return(len(response[0].split()))
 
-def countMessages(m, mailbox, debug=0):
+def countMessages(m, mailbox, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     assert('OK' == status)
     return(response[0])
 
-def listMailboxes(m, debug=0):
+def listMailboxes(m, debug):
     mailboxes = []
     status, response = m.list()
     if debug: print(response)
@@ -119,7 +121,20 @@ def listMailboxes(m, debug=0):
             mailboxes.append(mailbox.split('"')[-2])
     return(mailboxes)
 
-def interactiveDelete(m, mailbox, debug=0):
+def getMessage(m, msg_uid, debug):
+    status, response = m.uid('FETCH', msg_uid, '(RFC822)')
+    if debug: print(response)
+    if debug: print('msgUID:{} len:{}'.format(msg_uid,len(response)))
+    assert('OK' == status)
+    assert(type(response) == list)
+    assert(2 <= len(response))
+    assert(type(response[0]) == tuple)
+    assert(2 <= len(response[0]))
+    (imap_data, message_data) = response[0]
+    if debug: print(imap_data)
+    return(message_data)
+
+def interactiveDelete(m, mailbox, debug):
     fd = sys.stdin.fileno()
     saveTCGetAttr = termios.tcgetattr(fd)
     status, response = m.select(mailbox, readonly=False)
@@ -127,6 +142,7 @@ def interactiveDelete(m, mailbox, debug=0):
     if 'OK' != status:
         return('mailbox not found')
     status, response = m.uid('search', None, 'ALL')
+    if debug: print(response)
     assert('OK' == status)
     assert(type(response == list))
     assert(1 == len(response))
@@ -134,40 +150,34 @@ def interactiveDelete(m, mailbox, debug=0):
     delete_count = 0
     for msg_uid in response[0].split():
         message_count +=1
-        status, response = m.uid('FETCH', msg_uid, '(RFC822)')
-        if debug: print('msgUID:{} len:{}'.format(msg_uid,len(response)))
-        assert('OK' == status)
-        assert(type(response) == list)
-        assert(2 <= len(response))
-        assert(type(response[0]) == tuple)
-        assert(2 <= len(response[0]))
-        (imap_data, message_data) = response[0]
-        headers = email.message_from_string(message_data)
-        print(response)
-        print(imap_data)
-        print('To: {}'.format(headers['to']))
-        print('From: {}'.format(headers['from']))
-        print('Subject: {}'.format(headers['subject']))
-        print 'Delete? (y/n/q): ',
+        message_data = getMessage(m, msg_uid, debug)
+        parsed_msg = email.message_from_string(message_data)
+        print('Date: {}'.format(parsed_msg['date']))
+        print('To: {}'.format(parsed_msg['to']))
+        print('From: {}'.format(parsed_msg['from']))
+        print('Subject: {}'.format(parsed_msg['subject']))
+        print('---')
+        if debug: print(parsed_msg)
+        print('Delete? (y/n/q): ', end='')
         tty.setraw(fd)
         user_input = sys.stdin.read(1)
         termios.tcsetattr(fd, termios.TCSADRAIN, saveTCGetAttr)
         print(user_input)
         if 'y' == user_input:
-            print m.uid('STORE', msg_uid, '+FLAGS', '(\\Deleted)')
+            print(m.uid('STORE', msg_uid, '+FLAGS', '(\\Deleted)'))
             delete_count += 1
         if 'q' == user_input:
             break
         if 0 < delete_count and 0 == delete_count % 10:
-            print m.expunge()
+            print(m.expunge())
             print('\nexpunged!\n')
     if 0 < delete_count and 0 != delete_count % 10:
-        print m.expunge()
+        print(m.expunge())
         print('\nexpunged!\n')
     m.close()
     return([message_count, delete_count])
 
-def envelopes(m, mailbox, debug=0):
+def envelopes(m, mailbox, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     if 'OK' != status:
@@ -184,7 +194,7 @@ def envelopes(m, mailbox, debug=0):
         assert('OK' == status)
         print(response)
 
-def flags(m, mailbox, debug=0):
+def flags(m, mailbox, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug: print(response)
     if 'OK' != status:
@@ -201,19 +211,19 @@ def flags(m, mailbox, debug=0):
         assert('OK' == status)
         print(response)
 
-def append(m, mailbox, filename, debug=0):
+def append(m, mailbox, filename, debug):
     with open(filename, 'rb') as f:
-        msg = f.read()
-    date_from_message = email.message_from_string(msg)['date']
+        message_data = f.read()
+    date_from_message = email.message_from_string(message_data)['date']
     if None == date_from_message:
         date_time = imaplib.Time2Internaldate(time.time())
     else:
         date_time = imaplib.Time2Internaldate(
             (dateutil.parser.parse(date_from_message) - EPOCH).total_seconds())
     if debug: print(date_from_message, date_time)
-    status, response = m.append(mailbox, '', date_time, msg)
+    status, response = m.append(mailbox, '', date_time, message_data)
 
-def gmailLogout(m, debug=0):
+def gmailLogout(m, debug):
     if debug: print('about to log out')
     m.logout()
     if debug: print('just logged out')
