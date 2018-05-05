@@ -3,6 +3,7 @@ from __future__ import print_function
 import argparse
 import datetime
 import dateutil.parser
+import dateutil.tz
 import email
 import httplib2
 import imaplib
@@ -15,6 +16,15 @@ import time
 import tty
 
 EPOCH = dateutil.parser.parse('1970-01-01 00:00:00 +0000')
+TZINFOS = {
+    'EDT': dateutil.tz.gettz('America/New_York'),
+    'EST': dateutil.tz.gettz('America/New_York')
+}
+
+def dt_is_naive(dt):
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+        return(True)
+    return(False)
 
 def parseArgs():
     parser = argparse.ArgumentParser()
@@ -156,9 +166,31 @@ def copyMessages(m, mailbox, debug):
         message_count +=1
         (message_data, message_id) = getMessage(m, msg_uid, debug)
         parsed_msg = email.message_from_string(message_data)
-        filename = '{}.{}.gmail'.format(
-            int((dateutil.parser.parse(parsed_msg['date'])-EPOCH).total_seconds()),
-            message_id)
+        if debug > 0:
+            print('Date: {}'.format(parsed_msg['date']))
+            print('Subject: {}'.format(parsed_msg['subject']))
+        try:
+            dt = dateutil.parser.parse(parsed_msg['date'])
+        except ValueError:
+            print('Got a ValueError, try fuzzy')
+            dt = dateutil.parser.parse(parsed_msg['date'], fuzzy=True)
+        if dt_is_naive(dt):
+            print('Performing TZ name lookup')
+            try:
+                dt = dateutil.parser.parse(parsed_msg['date'], tzinfos=TZINFOS)
+            except ValueError:
+                print('Got a ValueError, strip last word, force UTC')
+                dt = dateutil.parser.parse(' '.join(
+                    parsed_msg['date'].split()[:-1])).replace(
+                        tzinfo=dateutil.tz.tzutc()
+                    )
+        if dt_is_naive(dt):
+            print('TZ name lookup failed, forcing UTC')
+            dt = dateutil.parser.parse(parsed_msg['date']).replace(
+                tzinfo=dateutil.tz.tzutc()
+            )
+        filename = '{}.{}.gmail'.format(int((dt - EPOCH).total_seconds()),
+                                        message_id)
         with open(filename, 'w') as f:
             f.write(message_data)
 
