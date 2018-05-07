@@ -15,7 +15,8 @@ import termios
 import time
 import tty
 
-EPOCH = dateutil.parser.parse('1970-01-01 00:00:00 +0000')
+EPOCHSTR = '1970-01-01 00:00:00 +0000'
+EPOCH = dateutil.parser.parse(EPOCHSTR)
 TZINFOS = {
     'EDT': dateutil.tz.gettz('America/New_York'),
     'EST': dateutil.tz.gettz('America/New_York')
@@ -166,27 +167,30 @@ def copyMessages(m, mailbox, debug):
         message_count +=1
         (message_data, message_id) = getMessage(m, msg_uid, debug)
         parsed_msg = email.message_from_string(message_data)
+        date_from_message = parsed_msg['date']
         if debug > 0:
-            print('Date: {}'.format(parsed_msg['date']))
+            print('Date: {}'.format(date_from_message))
             print('Subject: {}'.format(parsed_msg['subject']))
+        if date_from_message is None:
+            date_from_message = EPOCHSTR
         try:
-            dt = dateutil.parser.parse(parsed_msg['date'])
+            dt = dateutil.parser.parse(date_from_message)
         except ValueError:
             print('Got a ValueError, try fuzzy')
-            dt = dateutil.parser.parse(parsed_msg['date'], fuzzy=True)
+            dt = dateutil.parser.parse(date_from_message, fuzzy=True)
         if dt_is_naive(dt):
             print('Performing TZ name lookup')
             try:
-                dt = dateutil.parser.parse(parsed_msg['date'], tzinfos=TZINFOS)
+                dt = dateutil.parser.parse(date_from_message, tzinfos=TZINFOS)
             except ValueError:
                 print('Got a ValueError, strip last word, force UTC')
                 dt = dateutil.parser.parse(' '.join(
-                    parsed_msg['date'].split()[:-1])).replace(
+                    date_from_message.split()[:-1])).replace(
                         tzinfo=dateutil.tz.tzutc()
                     )
         if dt_is_naive(dt):
             print('TZ name lookup failed, forcing UTC')
-            dt = dateutil.parser.parse(parsed_msg['date']).replace(
+            dt = dateutil.parser.parse(date_from_message).replace(
                 tzinfo=dateutil.tz.tzutc()
             )
         filename = '{}.{}.gmail'.format(int((dt - EPOCH).total_seconds()),
