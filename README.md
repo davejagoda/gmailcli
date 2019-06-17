@@ -2,23 +2,20 @@
 
 GMail Command Line Interface
 
-## key
-
-*required to use Application Specific Passwords*
-
-**required to use OAuth Tokens**
-
 ## server requirements
 
-GMail account with IMAP enabled: https://mail.google.com/mail/#settings/fwdandpop
+GMail account with IMAP enabled:
+https://mail.google.com/mail/#settings/fwdandpop
 
-*enable "less secure apps": https://www.google.com/settings/security/lesssecureapps*
+If you want to use use *Application Specific Passwords* (instead of OAuth):
+
+*enable "less secure apps":
+ https://www.google.com/settings/security/lesssecureapps*
 
 ## client requirements
 
-- Python
-- IMAP
-- **google-api-python-client**
+- python2.7
+- packages from `Pipfile`
 
 ## installation
 
@@ -28,19 +25,20 @@ GMail account with IMAP enabled: https://mail.google.com/mail/#settings/fwdandpo
 
 `cd gmailcli`
 
-**`virtualenv venv`**
-
-**`source venv/bin/activate`**
-
-**`pip install -r requirements.txt`**
+`pipenv install`
 
 ## potentially useful findings
 
-`Labels` and `Folders` are basically the same thing. Adding a `Label` to a message is like copying it to a `Folder`.
+`Labels` and `Folders` are basically the same thing. Adding a `Label`
+to a message is like copying it to a `Folder`.
 
-`Inbox` is a special `Label`. `All Mail` is the folder to which all messages belong.
+`Inbox` is a special `Label`. `All Mail` is the folder to which all
+messages belong.
 
 ## invocations
+
+*prepend each command below with `pipenv run` **OR** run `pipenv
+ shell` to active the virtualenv*
 
 Generate refresh and access tokens:
 
@@ -54,7 +52,8 @@ Set debug level to 4 (just for this invocation):
 
 `./gmailimap.py -t djcatchspam_gmail_token.json -u djcatchspam@gmail.com -dddd`
 
-Send a mail message by providing recipient address, subject, and body (be verbose):
+Send a mail message by providing recipient address, subject, and body
+(be verbose):
 
 `./gmailsend.py -t djcatchspam_gmail_token.json -r djcatchspam@gmail.com -s 'email subject' -b 'email body' -vv`
 
