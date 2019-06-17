@@ -37,7 +37,7 @@ messages belong.
 
 ## invocations
 
-*prepend each command below with `pipenv run` **OR** run `pipenv
+*Prepend each command below with `pipenv run` **OR** run `pipenv
  shell` to active the virtualenv*
 
 Generate refresh and access tokens:
