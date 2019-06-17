@@ -42,12 +42,22 @@ GMail account with IMAP enabled: https://mail.google.com/mail/#settings/fwdandpo
 
 ## invocations
 
+Generate refresh and access tokens:
+
 `./writeGoogleBearerToken.py djcatchspam_client_secrets.json djcatchspam_gmail_token.json`
 
-`./gmailimap.py -t djcatchspam_gmail_token.json -u djcatchspam@gmail.com -m -c`
+List all mailboxes and their respective message counts:
+
+`./gmailimap.py -t djcatchspam_gmail_token.json -u djcatchspam@gmail.com -l`
+
+Set debug level to 4 (just for this invocation):
 
 `./gmailimap.py -t djcatchspam_gmail_token.json -u djcatchspam@gmail.com -dddd`
 
+Send a mail message by providing recipient address, subject, and body (be verbose):
+
 `./gmailsend.py -t djcatchspam_gmail_token.json -r djcatchspam@gmail.com -s 'email subject' -b 'email body' -vv`
+
+Send a mail message with 2 attachments:
 
 `./gmailsend.py -t djcatchspam_gmail_token.json -r djcatchspam@gmail.com -s 'attachments' -b '2 attachments' -a file_in_cwd /tmp/file_with_path`
