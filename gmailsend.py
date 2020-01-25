@@ -45,14 +45,24 @@ def create_message(sender, to, subject, message_text, attachment_paths, verbose=
         with open(attachment_path, 'rb') as f:
             if main_type == 'text':
                 msg = MIMEText(f.read(), _subtype=sub_type)
+                if verbose > 1:
+                    print('Text')
             elif main_type == 'image':
                 msg = MIMEImage(f.read(), _subtype=sub_type)
+                if verbose > 1:
+                    print('Image')
             elif main_type == 'audio':
                 msg = MIMEAudio(f.read(), _subtype=sub_type)
+                if verbose > 1:
+                    print('Audio')
             elif main_type == 'application':
                 msg = MIMEApplication(f.read(), _subtype=sub_type)
+                if verbose > 1:
+                    print('Application')
             else:
                 msg = MIMEBase(main_type, sub_type)
+                if verbose > 1:
+                    print('Base')
                 msg.set_payload(f.read())
 
         msg.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
