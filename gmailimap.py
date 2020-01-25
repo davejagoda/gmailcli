@@ -61,11 +61,13 @@ def gmailLogin(username, tokenFile, debug):
         m.debug = debug # setting to 4 seems quite verbose
     if tokenFile:
         with open(tokenFile, 'r') as f:
-            credentials = oauth2client.client.Credentials.new_from_json(f.read())
+            credentials = oauth2client.client.Credentials.new_from_json(
+                f.read())
         if credentials.access_token_expired:
             if debug > 0: print('access token expired, refreshing')
             credentials.refresh(httplib2.Http())
-        auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, credentials.access_token)
+        auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username,
+                                                       credentials.access_token)
         if debug > 1: print(auth_string)
         m.authenticate('XOAUTH2', lambda x: auth_string)
     else:
@@ -153,7 +155,7 @@ def getMessage(m, msg_uid, debug):
     return(message_data, message_id)
 
 def copyMessages(m, mailbox, debug):
-    status, response = m.select(mailbox, readonly=False)
+    status, response = m.select(mailbox, readonly=True)
     if debug > 1: print(response)
     if 'OK' != status:
         return('mailbox not found')
