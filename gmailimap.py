@@ -1,19 +1,17 @@
-#!/usr/bin/env python
-from __future__ import print_function
+#!/usr/bin/env python3
+
 import argparse
 import datetime
 import dateutil.parser
 import dateutil.tz
 import email
-import httplib2
 import imaplib
-import oauth2client.client
 import os
 import re
 import sys
-import termios
 import time
-import tty
+from gmail_lib import refreshToken
+from google.oauth2.credentials import Credentials
 
 EPOCHSTR = '1970-01-01 00:00:00 +0000'
 EPOCH = dateutil.parser.parse(EPOCHSTR)
@@ -24,22 +22,26 @@ TZINFOS = {
 
 def dt_is_naive(dt):
     if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
-        return(True)
-    return(False)
+        return True
+    return False
 
 def parseArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--debug', action='count', default=0,
-                        help='debug output')
-    parser.add_argument('-m', '--mailbox', default='[Gmail]/All Mail',
-                        help='name of mailbox to use')
+                        help='increase debug verbosity')
+    parser.add_argument('-u', '--username', required=True,
+                        help='IMAP username')
     parser.add_argument('-t', '--tokenFile', default=None,
                         help='OAuth token file')
-    parser.add_argument('-u', '--username', required=True, help='IMAP username')
+    parser.add_argument('-m', '--mailbox', default='[Gmail]/All Mail',
+                        help='name of mailbox to use')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-b', '--before', help='counts before CCYY-MM-DD')
-    group.add_argument('-o', '--on', help='counts on CCYY-MM-DD')
-    group.add_argument('-s', '--since', help='counts since CCYY-MM-DD')
+    group.add_argument('-b', '--before',
+                       help='counts before CCYY-MM-DD')
+    group.add_argument('-o', '--on',
+                       help='counts on CCYY-MM-DD')
+    group.add_argument('-s', '--since',
+                       help='counts since CCYY-MM-DD')
     group.add_argument('-l', '--list', action='store_true',
                        help='list mailboxes')
     group.add_argument('-c', '--copy', action='store_true',
@@ -50,24 +52,23 @@ def parseArgs():
                        help='print all envelope data')
     group.add_argument('-f', '--flags', action='store_true',
                        help='print all flags')
-    group.add_argument('-a', '--append', help='append this file')
+    group.add_argument('-a', '--append',
+                       help='append this file')
     args = parser.parse_args()
-    return(args)
+    return args
 
-def gmailLogin(username, tokenFile, debug):
+def gmailLogin(username, tokenFile=None, debug=0):
     m = imaplib.IMAP4_SSL('imap.gmail.com')
     if debug > 0:
         print('about to log in')
         m.debug = debug # setting to 4 seems quite verbose
     if tokenFile:
-        with open(tokenFile, 'r') as f:
-            credentials = oauth2client.client.Credentials.new_from_json(
-                f.read())
-        if credentials.access_token_expired:
+        credentials = Credentials.from_authorized_user_file(tokenFile)
+        if credentials.expired:
             if debug > 0: print('access token expired, refreshing')
-            credentials.refresh(httplib2.Http())
+            refreshToken(tokenFile, credentials)
         auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username,
-                                                       credentials.access_token)
+                                                       credentials.token)
         if debug > 1: print(auth_string)
         m.authenticate('XOAUTH2', lambda x: auth_string)
     else:
@@ -77,11 +78,11 @@ def gmailLogin(username, tokenFile, debug):
             sys.exit(1)
         m.login(username, password)
     if debug > 0: print('just logged in')
-    return(m)
+    return m
 
 def countBefore(m, mailbox, before, debug):
-    status, response = m.select(mailbox, readonly=True)
-    if debug > 1: print(response)
+    status, response = m.select(f'"{mailbox}"', readonly=True)
+    if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
     d = datetime.datetime.strptime(before, '%Y-%m-%d')
     searchstring = '(before "{}")'.format(d.strftime('%d-%b-%Y'))
@@ -90,11 +91,11 @@ def countBefore(m, mailbox, before, debug):
     if debug > 1: print(response)
     assert('OK' == status)
     assert(1 == len(response))
-    return(len(response[0].split()))
+    return len(response[0].split())
 
 def countOn(m, mailbox, on, debug):
-    status, response = m.select(mailbox, readonly=True)
-    if debug > 1: print(response)
+    status, response = m.select(f'"{mailbox}"', readonly=True)
+    if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
     d = datetime.datetime.strptime(on, '%Y-%m-%d')
     searchstring = '(on "{}")'.format(d.strftime('%d-%b-%Y'))
@@ -103,11 +104,11 @@ def countOn(m, mailbox, on, debug):
     if debug > 1: print(response)
     assert('OK' == status)
     assert(1 == len(response))
-    return(len(response[0].split()))
+    return len(response[0].split())
 
 def countSince(m, mailbox, since, debug):
-    status, response = m.select(mailbox, readonly=True)
-    if debug > 1: print(response)
+    status, response = m.select(f'"{mailbox}"', readonly=True)
+    if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
     d = datetime.datetime.strptime(since, '%Y-%m-%d')
     searchstring = '(since "{}")'.format(d.strftime('%d-%b-%Y'))
@@ -116,32 +117,33 @@ def countSince(m, mailbox, since, debug):
     if debug > 1: print(response)
     assert('OK' == status)
     assert(1 == len(response))
-    return(len(response[0].split()))
+    return len(response[0].split())
 
 def countMessages(m, mailbox, debug):
-    status, response = m.select(mailbox, readonly=True)
-    if debug > 1: print(response)
+    status, response = m.select(f'"{mailbox}"', readonly=True)
+    if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
-    return(response[0])
+    return response[0].decode('utf-8')
 
 def listMailboxes(m, debug):
     mailboxes = []
     status, response = m.list()
-    if debug > 1: print(response)
+    if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
     assert(list == type(response))
     for mailbox in response:
+        mailbox = mailbox.decode('utf-8')
         assert(str == type(mailbox))
         if debug > 0: print(mailbox)
-        if '\Noselect' not in mailbox.split('"')[0]:
+        if r'\Noselect' not in mailbox.split('"')[0]:
             mailboxes.append(mailbox.split('"')[-2])
-    return(mailboxes)
+    return mailboxes
 
 def getMessage(m, msg_uid, debug):
     status, response = m.uid('FETCH', msg_uid,
 #                             '(RFC822 X-GM-LABELS X-GM-THRID X-GM-MSGID)')
                              '(RFC822 X-GM-MSGID)')
-    if debug > 1: print(response)
+    if debug > 1: print(f'status:{status} response:{response}')
     if debug > 0: print('msgUID:{} len:{}'.format(msg_uid,len(response)))
     assert('OK' == status)
     assert(type(response) == list)
@@ -149,16 +151,18 @@ def getMessage(m, msg_uid, debug):
     assert(type(response[0]) == tuple)
     assert(2 <= len(response[0]))
     (imap_data, message_data) = response[0]
+    imap_data = imap_data.decode('utf-8')
+    message_data = message_data.decode('utf-8')
     if debug > 1: print('imap_data:{}'.format(imap_data))
     pattern = re.compile('X-GM-MSGID\s+(\d+)')
     message_id = pattern.search(imap_data).group(1)
-    return(message_data, message_id)
+    return message_data, message_id
 
 def copyMessages(m, mailbox, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug > 1: print(response)
     if 'OK' != status:
-        return('mailbox not found')
+        return 'mailbox not found'
     status, response = m.uid('search', None, 'ALL')
     if debug > 1: print(response)
     assert('OK' == status)
@@ -202,11 +206,10 @@ def copyMessages(m, mailbox, debug):
 
 def interactiveDelete(m, mailbox, debug):
     fd = sys.stdin.fileno()
-    saveTCGetAttr = termios.tcgetattr(fd)
     status, response = m.select(mailbox, readonly=False)
     if debug > 1: print(response)
     if 'OK' != status:
-        return('mailbox not found')
+        return 'mailbox not found'
     status, response = m.uid('search', None, 'ALL')
     if debug > 1: print(response)
     assert('OK' == status)
@@ -224,11 +227,7 @@ def interactiveDelete(m, mailbox, debug):
         print('Subject: {}'.format(parsed_msg['subject']))
         print('---')
         if debug > 1: print(parsed_msg)
-        print('Delete? (y/n/q): ', end='')
-        tty.setraw(fd)
-        user_input = sys.stdin.read(1)
-        termios.tcsetattr(fd, termios.TCSADRAIN, saveTCGetAttr)
-        print(user_input)
+        user_input = input('Delete? (y/n/q): ')
         if 'y' == user_input:
             print(m.uid('STORE', msg_uid, '+FLAGS', '(\\Deleted)'))
             delete_count += 1
@@ -241,13 +240,13 @@ def interactiveDelete(m, mailbox, debug):
         print(m.expunge())
         print('\nexpunged!\n')
     m.close()
-    return([message_count, delete_count])
+    return [message_count, delete_count]
 
 def envelopes(m, mailbox, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug > 1: print(response)
     if 'OK' != status:
-        return('mailbox not found')
+        return 'mailbox not found'
     status, response = m.uid('search', None, 'ALL')
     assert('OK' == status)
     assert(type(response == list))
@@ -264,7 +263,7 @@ def flags(m, mailbox, debug):
     status, response = m.select(mailbox, readonly=True)
     if debug > 1: print(response)
     if 'OK' != status:
-        return('mailbox not found')
+        return 'mailbox not found'
     status, response = m.uid('search', None, 'ALL')
     assert('OK' == status)
     assert(type(response == list))

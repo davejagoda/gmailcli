@@ -1,53 +1,59 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import base64
-import httplib2
-import oauth2client.client
 import os
 import sys
 import smtplib
+from gmail_lib import refreshToken
+from google.oauth2.credentials import Credentials
 
 def parseArgs():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', action='count', help='add debug output')
-    parser.add_argument('-u', '--username', required=True, help='SMTP username')
-    parser.add_argument('-t', '--tokenFile', help='OAuth token file')
+    parser.add_argument('-d', '--debug', action='count', default=0,
+                        help='increase debug verbosity')
+    parser.add_argument('-u', '--username', required=True,
+                        help='SMTP username')
+    parser.add_argument('-t', '--tokenFile', default=None,
+                        help='OAuth token file')
     parser.add_argument('-r', '--recipients', required=True,
                         help='recipient address[es], separated by commas')
-    parser.add_argument('-s', '--subject', required=True, help='email subject')
-    parser.add_argument('-b', '--body', required=True, help='message body')
+    parser.add_argument('-s', '--subject', required=True,
+                        help='email subject')
+    parser.add_argument('-b', '--body', required=True,
+                        help='message body')
     args = parser.parse_args()
-    return(args)
+    return args
 
 def gmailLogin(username, tokenFile=None, debug=0):
     m = smtplib.SMTP_SSL('smtp.gmail.com')
-    if debug:
+    if debug > 0:
         print('about to log in')
         m.set_debuglevel(debug) # setting to 4 seems quite verbose
     if tokenFile:
-        with open(tokenFile, 'r') as f:
-            credentials = oauth2client.client.Credentials.new_from_json(f.read())
-        if credentials.access_token_expired:
-            if debug: print('access token expired, refreshing')
-            credentials.refresh(httplib2.Http())
-        auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, credentials.access_token)
-        if debug: print(auth_string)
+        credentials = Credentials.from_authorized_user_file(tokenFile)
+        if credentials.expired:
+            if debug > 0: print('access token expired, refreshing')
+            refreshToken(tokenFile, credentials)
+        auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username,
+                                                       credentials.token)
+        if debug > 1: print(auth_string)
         m.ehlo()
-        m.docmd('AUTH', 'XOAUTH2 ' + base64.b64encode(auth_string))
+        m.docmd('AUTH', 'XOAUTH2 ' + base64.b64encode(bytes(
+            auth_string, 'utf-8')).decode('utf-8'))
     else:
         password = os.getenv('GoogleDocsPassWord')
         if password == None:
             print('set the GoogleDocsPassWord environment variable')
             sys.exit(1)
         m.login(username, password)
-    if debug: print('just logged in')
-    return(m)
+    if debug > 0: print('just logged in')
+    return m
 
 def gmailLogout(m, debug=0):
-    if debug: print('about to log out')
+    if debug > 0: print('about to log out')
     m.quit()
-    if debug: print('just logged out')
+    if debug > 0: print('just logged out')
 
 def gmailSend(m, fromaddr, toaddrs, subject, body, debug=0):
     msg = 'From: {}\r\nTo: {} \r\nSubject: {}\r\n\r\n{}'.format(

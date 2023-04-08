@@ -1,30 +1,49 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import os, argparse, json, webbrowser
-import oauth2client.client
+# https://developers.google.com/gmail/api/quickstart/python
 
-OAUTH2_SCOPE = 'https://mail.google.com/'
+import argparse
+import json
+import os.path
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 
-def promptForCode(clientSecrets):
-    flow = oauth2client.client.flow_from_clientsecrets(clientSecrets, OAUTH2_SCOPE)
-    flow.redirect_uri = oauth2client.client.OOB_CALLBACK_URN
-    authorize_url = flow.step1_get_authorize_url()
-    print('about to open authorize URL: {}'.format(authorize_url))
-    webbrowser.open(authorize_url)
-    code = raw_input('paste in returned code here: ')
-    return(flow.step2_exchange(code))
-
-def writeToken(token, filename):
-    with open(filename, 'w') as f:
-        f.write(json.dumps(token, indent=4, sort_keys=True))
+def validateToken(clientSecrets, tokenFile, verbose):
+    # If modifying these scopes, delete the tokenFile.
+    SCOPES = ['https://mail.google.com/']
+    creds = None
+    # The tokenFile stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists(tokenFile):
+        if verbose:
+            print('reading tokenFile')
+        creds = Credentials.from_authorized_user_file(tokenFile, SCOPES)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            if verbose:
+                print('refreshing token')
+            creds.refresh(Request())
+        else:
+            if verbose:
+                print('requesting user permissions')
+            flow = InstalledAppFlow.from_client_secrets_file(
+                clientSecrets, SCOPES)
+            creds = flow.run_local_server(port=8000)
+        # Save the credentials for the next run
+        with open(tokenFile, 'w') as f:
+            json.dump(json.loads(creds.to_json()), f, indent=4, sort_keys=True)
+            f.write('\n')
 
 if '__main__' == __name__:
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--verbose', action='store_true', help='show verbose output')
-    parser.add_argument('clientSecrets', help='file containing clientSecrets in JSON format')
-    parser.add_argument('tokenFile', help='file containing token in JSON format')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='show verbose output')
+    parser.add_argument('clientSecrets',
+                        help='file containing clientSecrets in JSON format')
+    parser.add_argument('tokenFile',
+                        help='file containing token in JSON format')
     args = parser.parse_args()
-    token = promptForCode(args.clientSecrets)
-    if args.verbose:
-        print('token={}'.format(json.dumps(json.loads(token.to_json()), indent=4, sort_keys=True)))
-    writeToken(json.loads(token.to_json()), args.tokenFile)
+    validateToken(args.clientSecrets, args.tokenFile, args.verbose)
