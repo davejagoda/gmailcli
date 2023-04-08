@@ -14,7 +14,7 @@ If you want to use use *Application Specific Passwords* (instead of OAuth):
 
 ## client requirements
 
-- python2.7
+- python3.10
 - packages from `Pipfile`
 
 ## installation
