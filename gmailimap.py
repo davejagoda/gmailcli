@@ -81,23 +81,14 @@ def gmailLogin(username, tokenFile=None, debug=0):
     return m
 
 def searchBefore(m, mailbox, before, debug):
-    status, response = m.select(f'"{mailbox}"', readonly=True)
-    if debug > 1: print(f'status:{status} response:{response}')
-    assert('OK' == status)
     d = datetime.datetime.strptime(before, '%Y-%m-%d')
     return '(before "{}")'.format(d.strftime('%d-%b-%Y'))
 
 def searchOn(m, mailbox, on, debug):
-    status, response = m.select(f'"{mailbox}"', readonly=True)
-    if debug > 1: print(f'status:{status} response:{response}')
-    assert('OK' == status)
     d = datetime.datetime.strptime(on, '%Y-%m-%d')
     return '(on "{}")'.format(d.strftime('%d-%b-%Y'))
 
 def searchSince(m, mailbox, since, debug):
-    status, response = m.select(f'"{mailbox}"', readonly=True)
-    if debug > 1: print(f'status:{status} response:{response}')
-    assert('OK' == status)
     d = datetime.datetime.strptime(since, '%Y-%m-%d')
     return '(since "{}")'.format(d.strftime('%d-%b-%Y'))
 
