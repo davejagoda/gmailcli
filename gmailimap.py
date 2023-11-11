@@ -35,13 +35,13 @@ def parseArgs():
                         help='OAuth token file')
     parser.add_argument('-m', '--mailbox', default='[Gmail]/All Mail',
                         help='name of mailbox to use')
+    parser.add_argument('-b', '--before',
+                       help='search before CCYY-MM-DD')
+    parser.add_argument('-o', '--on',
+                       help='search on CCYY-MM-DD')
+    parser.add_argument('-s', '--since',
+                       help='search since CCYY-MM-DD')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-b', '--before',
-                       help='counts before CCYY-MM-DD')
-    group.add_argument('-o', '--on',
-                       help='counts on CCYY-MM-DD')
-    group.add_argument('-s', '--since',
-                       help='counts since CCYY-MM-DD')
     group.add_argument('-l', '--list', action='store_true',
                        help='list mailboxes')
     group.add_argument('-c', '--copy', action='store_true',
@@ -80,50 +80,39 @@ def gmailLogin(username, tokenFile=None, debug=0):
     if debug > 0: print('just logged in')
     return m
 
-def countBefore(m, mailbox, before, debug):
+def searchBefore(m, mailbox, before, debug):
     status, response = m.select(f'"{mailbox}"', readonly=True)
     if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
     d = datetime.datetime.strptime(before, '%Y-%m-%d')
-    searchstring = '(before "{}")'.format(d.strftime('%d-%b-%Y'))
-    if debug > 1: print(searchstring)
-    status, response = m.search(None, searchstring)
-    if debug > 1: print(response)
-    assert('OK' == status)
-    assert(1 == len(response))
-    return len(response[0].split())
+    return '(before "{}")'.format(d.strftime('%d-%b-%Y'))
 
-def countOn(m, mailbox, on, debug):
+def searchOn(m, mailbox, on, debug):
     status, response = m.select(f'"{mailbox}"', readonly=True)
     if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
     d = datetime.datetime.strptime(on, '%Y-%m-%d')
-    searchstring = '(on "{}")'.format(d.strftime('%d-%b-%Y'))
-    if debug > 1: print(searchstring)
-    status, response = m.search(None, searchstring)
-    if debug > 1: print(response)
-    assert('OK' == status)
-    assert(1 == len(response))
-    return len(response[0].split())
+    return '(on "{}")'.format(d.strftime('%d-%b-%Y'))
 
-def countSince(m, mailbox, since, debug):
+def searchSince(m, mailbox, since, debug):
     status, response = m.select(f'"{mailbox}"', readonly=True)
     if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
     d = datetime.datetime.strptime(since, '%Y-%m-%d')
-    searchstring = '(since "{}")'.format(d.strftime('%d-%b-%Y'))
-    if debug > 1: print(searchstring)
-    status, response = m.search(None, searchstring)
-    if debug > 1: print(response)
-    assert('OK' == status)
-    assert(1 == len(response))
-    return len(response[0].split())
+    return '(since "{}")'.format(d.strftime('%d-%b-%Y'))
 
-def countMessages(m, mailbox, debug):
+def countMessages(m, mailbox, criterion, debug):
     status, response = m.select(f'"{mailbox}"', readonly=True)
     if debug > 1: print(f'status:{status} response:{response}')
     assert('OK' == status)
-    return response[0].decode('utf-8')
+    if criterion:
+        if debug > 1: print(f'using this search criterion: {criterion}')
+        status, response = m.search(None, ' '.join(criterion))
+        if debug > 1: print(f'status: {status} response: {response}')
+        return len(response[0].split())
+    else:
+        if debug > 1: print(f'using select only')
+        return response[0].decode('utf-8')
 
 def listMailboxes(m, debug):
     mailboxes = []
@@ -153,7 +142,7 @@ def getMessage(m, msg_uid, debug):
     (imap_data, message_data) = response[0]
     imap_data = imap_data.decode('utf-8')
     message_data = message_data.decode('utf-8')
-    if debug > 1: print('imap_data:{}'.format(imap_data))
+    if debug > 1: print(f'imap_data:{imap_data}')
     pattern = re.compile('X-GM-MSGID\s+(\d+)')
     message_id = pattern.search(imap_data).group(1)
     return message_data, message_id
@@ -175,7 +164,7 @@ def copyMessages(m, mailbox, debug):
         parsed_msg = email.message_from_string(message_data)
         date_from_message = parsed_msg['date']
         if debug > 0:
-            print('Date: {}'.format(date_from_message))
+            print(f'Date: {date_from_message}')
             print('Subject: {}'.format(parsed_msg['subject']))
         if date_from_message is None:
             date_from_message = EPOCHSTR
@@ -252,7 +241,6 @@ def envelopes(m, mailbox, debug):
     assert(type(response == list))
     assert(1 == len(response))
     message_count = 0
-    delete_count = 0
     for msg_uid in response[0].split():
         message_count +=1
         status, response = m.uid('FETCH', msg_uid, '(ENVELOPE)')
@@ -269,7 +257,6 @@ def flags(m, mailbox, debug):
     assert(type(response == list))
     assert(1 == len(response))
     message_count = 0
-    delete_count = 0
     for msg_uid in response[0].split():
         message_count +=1
         status, response = m.uid('FETCH', msg_uid, '(FLAGS)')
@@ -296,27 +283,28 @@ def gmailLogout(m, debug):
 if '__main__' == __name__:
     args = parseArgs()
     m = gmailLogin(args.username, args.tokenFile, debug=args.debug)
+    criterion = []
     if args.before:
-        print('{} messages before {}'.format(countBefore(
-            m, args.mailbox, args.before, debug=args.debug), args.before))
+        criterion.append(searchBefore(
+            m, args.mailbox, args.before, debug=args.debug))
     if args.on:
-        print('{} messages on {}'.format(countOn(
-            m, args.mailbox, args.on, debug=args.debug), args.on))
+        criterion.append(searchOn(
+            m, args.mailbox, args.on, debug=args.debug))
     if args.since:
-        print('{} messages since {}'.format(countSince(
-            m, args.mailbox, args.since, debug=args.debug), args.since))
+        criterion.append(searchSince(
+            m, args.mailbox, args.since, debug=args.debug))
     if args.list:
         mailboxes = listMailboxes(m, debug=args.debug)
         for mailbox in mailboxes:
-            message_count = countMessages(m, mailbox, debug=args.debug)
-            print('{}:{}'.format(mailbox, message_count))
+            message_count = countMessages(m, mailbox, criterion,
+                                          debug=args.debug)
+            print(f'{mailbox}:{message_count}')
     if args.copy:
         copyMessages(m, args.mailbox, debug=args.debug)
     if args.interactiveDelete:
         (message_count, delete_count) = interactiveDelete(
             m, args.mailbox, debug=args.debug)
-        print('messages processed:{} messages deleted:{}'.format(
-            message_count, delete_count))
+        print(f'messages processed:{message_count} deleted:{delete_count}')
     if args.envelopes:
         envelopes(m, args.mailbox, debug=args.debug)
     if args.flags:
