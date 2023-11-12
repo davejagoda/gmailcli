@@ -35,11 +35,11 @@ def parseArgs():
                         help='OAuth token file')
     parser.add_argument('-m', '--mailbox', default='[Gmail]/All Mail',
                         help='name of mailbox to use')
-    parser.add_argument('-b', '--before',
+    parser.add_argument('--before',
                        help='search before CCYY-MM-DD')
-    parser.add_argument('-o', '--on',
+    parser.add_argument('--on',
                        help='search on CCYY-MM-DD')
-    parser.add_argument('-s', '--since',
+    parser.add_argument('--since',
                        help='search since CCYY-MM-DD')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-l', '--list', action='store_true',
@@ -80,17 +80,12 @@ def gmailLogin(username, tokenFile=None, debug=0):
     if debug > 0: print('just logged in')
     return m
 
-def searchBefore(m, mailbox, before, debug):
-    d = datetime.datetime.strptime(before, '%Y-%m-%d')
-    return '(before "{}")'.format(d.strftime('%d-%b-%Y'))
-
-def searchOn(m, mailbox, on, debug):
-    d = datetime.datetime.strptime(on, '%Y-%m-%d')
-    return '(on "{}")'.format(d.strftime('%d-%b-%Y'))
-
-def searchSince(m, mailbox, since, debug):
-    d = datetime.datetime.strptime(since, '%Y-%m-%d')
-    return '(since "{}")'.format(d.strftime('%d-%b-%Y'))
+def searchDate(preposition, dateArg, debug):
+    dateString = datetime.datetime.strptime(dateArg,
+                                            '%Y-%m-%d').strftime('%d-%b-%Y')
+    searchString = f'({preposition} "{dateString}")'
+    if debug > 0: print (searchString)
+    return searchString
 
 def countMessages(m, mailbox, criterion, debug):
     status, response = m.select(f'"{mailbox}"', readonly=True)
@@ -276,14 +271,11 @@ if '__main__' == __name__:
     m = gmailLogin(args.username, args.tokenFile, debug=args.debug)
     criterion = []
     if args.before:
-        criterion.append(searchBefore(
-            m, args.mailbox, args.before, debug=args.debug))
+        criterion.append(searchDate('before', args.before, debug=args.debug))
     if args.on:
-        criterion.append(searchOn(
-            m, args.mailbox, args.on, debug=args.debug))
+        criterion.append(searchDate('on', args.on, debug=args.debug))
     if args.since:
-        criterion.append(searchSince(
-            m, args.mailbox, args.since, debug=args.debug))
+        criterion.append(searchDate('since', args.since, debug=args.debug))
     if args.list:
         mailboxes = listMailboxes(m, debug=args.debug)
         for mailbox in mailboxes:
