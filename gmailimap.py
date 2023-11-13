@@ -41,6 +41,16 @@ def parseArgs():
                        help='search on CCYY-MM-DD')
     parser.add_argument('--since',
                        help='search since CCYY-MM-DD')
+    parser.add_argument('--bcc',
+                       help='search bcc')
+    parser.add_argument('--cc',
+                       help='search cc')
+    parser.add_argument('--sender',
+                       help='search sender')
+    parser.add_argument('--to',
+                       help='search to')
+    parser.add_argument('--subject',
+                       help='search subject')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-l', '--list', action='store_true',
                        help='list mailboxes')
@@ -84,6 +94,11 @@ def searchDate(preposition, dateArg, debug):
     dateString = datetime.datetime.strptime(dateArg,
                                             '%Y-%m-%d').strftime('%d-%b-%Y')
     searchString = f'({preposition} "{dateString}")'
+    if debug > 0: print (searchString)
+    return searchString
+
+def searchString(preposition, stringArg, debug):
+    searchString = f'({preposition} "{stringArg}")'
     if debug > 0: print (searchString)
     return searchString
 
@@ -276,6 +291,16 @@ if '__main__' == __name__:
         criterion.append(searchDate('on', args.on, debug=args.debug))
     if args.since:
         criterion.append(searchDate('since', args.since, debug=args.debug))
+    if args.bcc:
+        criterion.append(searchString('bcc', args.bcc, debug=args.debug))
+    if args.cc:
+        criterion.append(searchString('cc', args.cc, debug=args.debug))
+    if args.sender: # since from is a reserved word in Python
+        criterion.append(searchString('from', args.sender, debug=args.debug))
+    if args.to:
+        criterion.append(searchString('to', args.to, debug=args.debug))
+    if args.subject:
+        criterion.append(searchString('subject', args.subject, debug=args.debug))
     if args.list:
         mailboxes = listMailboxes(m, debug=args.debug)
         for mailbox in mailboxes:
