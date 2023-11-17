@@ -52,9 +52,11 @@ def parseArgs():
     parser.add_argument('--subject',
                        help='search subject')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-l', '--list', action='store_true',
+    group.add_argument('--list', action='store_true',
                        help='list mailboxes')
-    group.add_argument('-c', '--copy', action='store_true',
+    group.add_argument('--count', action='store_true',
+                       help='count messages in mailboxes')
+    group.add_argument('--copy', action='store_true',
                        help='copy messages to Maildir compatible filenames')
     group.add_argument('-i', '--interactiveDelete', action='store_true',
                        help='ask to delete messages one by one')
@@ -307,6 +309,10 @@ if '__main__' == __name__:
             message_count = countMessages(m, mailbox, criterion,
                                           debug=args.debug)
             print(f'{mailbox}:{message_count}')
+    if args.count:
+        message_count = countMessages(m, args.mailbox, criterion,
+                                      debug=args.debug)
+        print(f'{args.mailbox}:{message_count}')
     if args.copy:
         copyMessages(m, args.mailbox, debug=args.debug)
     if args.interactiveDelete:
